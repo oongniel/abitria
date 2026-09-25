@@ -1,0 +1,24 @@
+{
+  "name": "New stock",
+  "rateAedToPhp": 17,
+  "commissionPhp": 300,
+  "partners": [
+    { "name": "Yet", "capitalAed": 2100 },
+    { "name": "Pat", "capitalAed": 2100 }
+  ],
+  "items": [
+    { "brand": "French Avenue", "name": "Liquid Brun", "retailPhp": 2650, "costAed": 86, "qty": 6 },
+    { "brand": "Arabiyat Prestige", "name": "Nyla Sherbet", "retailPhp": 2150, "costAed": 40, "qty": 4 },
+    { "brand": "Arabiyat Prestige", "name": "Nyla Vanille", "retailPhp": 2150, "costAed": 40, "qty": 4 },
+    { "brand": "Arabiyat Prestige", "name": "Marwa Arabiyat", "retailPhp": 2950, "costAed": 87, "qty": 6 },
+    { "brand": "Maison Alhambra", "name": "Delilah Pink", "retailPhp": 1500, "costAed": 34, "qty": 12 },
+    { "brand": "Khadlaj", "name": "Shiyakaa Shadow", "retailPhp": 2150, "costAed": 60, "qty": 6 },
+    { "brand": "Khadlaj", "name": "Shiyakaa Snow", "retailPhp": 2150, "costAed": 60, "qty": 6 },
+    { "brand": "Rasasi", "name": "Rasasi Thunder", "retailPhp": 2650, "costAed": 85, "qty": 6 },
+    { "brand": "Rasasi", "name": "Rasasi Kobra", "retailPhp": 2050, "costAed": 55, "qty": 6 },
+    { "brand": "Rasasi", "name": "Hawas Him", "retailPhp": 1950, "costAed": 55, "qty": 3 },
+    { "brand": "Lattafa", "name": "Hayaati Florence", "retailPhp": 1450, "costAed": 36, "qty": 6 },
+    { "brand": "Lattafa", "name": "Ana Abiyedh Coral", "retailPhp": 1500, "costAed": 35, "qty": 6 },
+    { "brand": "Rayhaan", "name": "Lion", "retailPhp": 1850, "costAed": 49, "qty": 6 }
+  ]
+}

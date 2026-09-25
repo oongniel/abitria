@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --paper: 244 243 247;
+    --surface: 255 255 255;
+    --surface-2: 236 234 241;
+    --ink: 29 23 36;
+    --ink-2: 90 82 102;
+    --line: 221 217 228;
+    --oud: 94 42 82;
+    --on-oud: 255 255 255;
+    --oud-soft: 239 227 236;
+    --amber: 147 87 15;
+    --amber-soft: 248 236 218;
+    --sage: 30 107 92;
+    --rose: 180 35 44;
+    --shadow: 40 20 50;
+    --liquid-a: 124 58 108;
+    --liquid-b: 94 42 82;
+    --gold-a: 222 160 70;
+    --gold-b: 176 110 28;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --duration-feedback: 120ms;
+    --duration-state: 220ms;
+    color-scheme: light;
+  }
+
+  :root[data-theme="dark"] {
+    --paper: 18 16 21;
+    --surface: 27 24 32;
+    --surface-2: 36 32 43;
+    --ink: 241 237 245;
+    --ink-2: 167 159 178;
+    --line: 46 41 54;
+    --oud: 217 162 203;
+    --on-oud: 30 16 28;
+    --oud-soft: 52 36 50;
+    --amber: 229 168 90;
+    --amber-soft: 56 42 24;
+    --sage: 108 199 176;
+    --rose: 240 138 143;
+    --shadow: 0 0 0;
+    --liquid-a: 176 104 158;
+    --liquid-b: 120 60 106;
+    --gold-a: 236 184 104;
+    --gold-b: 190 128 44;
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scrollbar-color: rgb(var(--line)) transparent;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: rgb(var(--oud) / 0.22);
+    color: rgb(var(--ink));
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--oud));
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+  input,
+  select,
+  textarea {
+    caret-color: rgb(var(--oud));
+  }
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--line));
+    border-radius: 999px;
+    border: 3px solid rgb(var(--paper));
+  }
+}
+
+@layer components {
+  /* Type scale — ratio ~1.2, fixed rem (Operate surface) */
+  .h1 { @apply font-serif text-[2rem] font-medium leading-[1.1] tracking-[-0.01em] text-balance md:text-[2.5rem]; font-variation-settings: "opsz" 96, "SOFT" 50; word-spacing: 0.04em; }
+  .h2 { @apply font-serif text-[1.5rem] font-medium leading-[1.2] tracking-[-0.015em] text-balance; font-variation-settings: "opsz" 48, "SOFT" 50; }
+  .t1 { @apply text-[1.25rem] font-semibold leading-snug tracking-[-0.01em]; }
+  .t2 { @apply text-[1.0625rem] font-semibold leading-snug; }
+  .t3 { @apply text-[0.9375rem] font-semibold leading-snug; }
+  .body1 { @apply text-[1rem] leading-relaxed; }
+  .body2 { @apply text-[0.875rem] leading-normal; }
+  .b1 { @apply text-[0.9375rem] font-medium leading-none; }
+  .b2 { @apply text-[0.8125rem] font-medium leading-none; }
+  .figure { @apply font-serif font-medium tabular-nums tracking-[-0.02em]; font-variation-settings: "opsz" 72, "SOFT" 30; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .container-x { @apply mx-auto w-full max-w-[82rem] px-5 md:px-8 lg:px-10; }
+  .panel { @apply rounded-2xl border border-line bg-surface; }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
+
+/* Theme reveal — view transition from the toggle */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+::view-transition-new(root) {
+  animation: theme-reveal 520ms var(--ease-out);
+}
+@keyframes theme-reveal {
+  from { clip-path: circle(0 at var(--vt-x, 50%) var(--vt-y, 0%)); }
+  to { clip-path: circle(var(--vt-r, 150vmax) at var(--vt-x, 50%) var(--vt-y, 0%)); }
+}
+
+/* Flacon liquid surface */
+@keyframes wave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.flacon-wave { animation: wave 5.5s linear infinite; }
+.flacon-wave-back { animation: wave 8s linear infinite reverse; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(root) { animation: none; }
+  .flacon-wave,
+  .flacon-wave-back { animation: none; }
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+  }
+}
