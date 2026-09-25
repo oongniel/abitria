@@ -61,7 +61,7 @@ export const SalesList = ({ batch, commit, onGoToStock }: { batch: Batch; commit
       </p>
       {Object.entries(byDate).map(([date, list]) => (
         <section key={date} className="flex flex-col gap-2">
-          <h3 className="b2 flex items-center justify-between px-1 text-ink-2">
+          <h3 className="b2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1 text-ink-2">
             <span>{shortDate(date)}</span>
             {!isSeller && <span className="num">{money(sum(list), "PHP")}</span>}
           </h3>
@@ -80,7 +80,8 @@ export const SalesList = ({ batch, commit, onGoToStock }: { batch: Batch; commit
                     transition={{ duration: 0.25, ease: EASE.out }}
                     className="flex flex-col"
                   >
-                    <div className="body2 num flex items-center gap-3 px-4 py-3">
+                    {/* On a phone the perfume takes the first line and the money the second, so neither is squeezed. */}
+                    <div className="body2 num flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3">
                       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="t3 truncate">{it?.name ?? "Removed perfume"}</span>
                         <span className="b2 truncate text-ink-2">
@@ -88,10 +89,11 @@ export const SalesList = ({ batch, commit, onGoToStock }: { batch: Batch; commit
                           {s.note ? `, ${s.note}` : ""}
                         </span>
                       </div>
-                      <span className={cn("b2 rounded-full px-2 py-1", s.channel === "direct" ? "bg-amber-soft text-amber" : "bg-surface-2 text-ink-2")}>
+                      <div className="flex items-center gap-3 sm:contents">
+                      <span className={cn("b2 shrink-0 rounded-full px-2 py-1", s.channel === "direct" ? "bg-amber-soft text-amber" : "bg-surface-2 text-ink-2")}>
                         {s.channel === "direct" ? "Direct" : "Reseller"}
                       </span>
-                      <span className="t3 w-24 text-end">{money(s.qty * s.unitPricePhp, "PHP")}</span>
+                      <span className="t3 ms-auto whitespace-nowrap sm:ms-0 sm:w-24 sm:text-end">{money(s.qty * s.unitPricePhp, "PHP")}</span>
                       {editable ? (
                         <div className="flex items-center gap-1">
                           <Button
@@ -108,8 +110,9 @@ export const SalesList = ({ batch, commit, onGoToStock }: { batch: Batch; commit
                           </Button>
                         </div>
                       ) : (
-                        <span className="b2 w-[4.5rem] text-end text-ink-2">Owner’s</span>
+                        <span className="b2 shrink-0 text-end text-ink-2 sm:w-[4.5rem]">Owner’s</span>
                       )}
+                      </div>
                     </div>
                     {it && (
                       <Collapse open={editing === s.id}>

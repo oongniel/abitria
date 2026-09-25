@@ -22,6 +22,8 @@ function ImportPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [drag, setDrag] = useState(false);
+  /** Identifies the parsed file, so editing the fields below doesn't remount the preview. */
+  const [parseId, setParseId] = useState(0);
   const input = useRef<HTMLInputElement>(null);
   const { upsert } = useInventory();
   const toast = useToast();
@@ -35,6 +37,7 @@ function ImportPage() {
     try {
       const { parseWorkbook } = await import("@/lib/spreadsheet");
       setParsed(parseWorkbook(await file.arrayBuffer(), file.name));
+      setParseId((n) => n + 1);
     } catch (e) {
       setParsed(null);
       setError(e instanceof Error ? e.message : "That file couldn’t be read. Save it as .xlsx and try again.");
@@ -90,7 +93,7 @@ function ImportPage() {
       <AnimatePresence mode="wait">
         {parsed && preview && f && (
           <motion.section
-            key={parsed.name + parsed.items.length}
+            key={parseId}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}

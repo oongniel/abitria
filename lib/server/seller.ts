@@ -19,6 +19,12 @@ export const redactForSeller = (state: InventoryState): InventoryState => ({
 const isOwn = (s: Sale) => s.soldBy === "seller";
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A seller sells through a reseller, at retail less the batch's commission. Nothing else is accepted. */
+const resellerRate = (batch: Batch, itemId: string) => {
+  const item = batch.items.find((i) => i.id === itemId);
+  return Math.max(0, (item?.retailPhp ?? 0) - batch.commissionPhp);
+};
+
 const sameSale = (a: Sale, b: Sale) =>
   a.itemId === b.itemId && a.qty === b.qty && a.unitPricePhp === b.unitPricePhp && a.channel === b.channel && a.date === b.date && (a.note ?? "") === (b.note ?? "");
 
@@ -53,11 +59,10 @@ export const mergeSellerSales = (current: Batch, incoming: Sale[]): MergeResult 
     // Anything else is the seller's own — existing or newly recorded.
     if (!current.items.some((i) => i.id === s.itemId)) return { ok: false, message: "That perfume isn’t in this batch." };
     if (!Number.isInteger(s.qty) || s.qty < 1) return { ok: false, message: "Bottles sold must be a whole number, at least 1." };
-    if (!Number.isFinite(s.unitPricePhp) || s.unitPricePhp < 0) return { ok: false, message: "The price received must be zero or more." };
-    if (s.channel !== "reseller" && s.channel !== "direct") return { ok: false, message: "A sale is either through a reseller or direct." };
     if (typeof s.date !== "string" || !ISO_DATE.test(s.date)) return { ok: false, message: "That sale date isn’t a valid date." };
     if (s.note !== undefined && (typeof s.note !== "string" || s.note.length > 500)) return { ok: false, message: "That note is too long." };
-    next.push({ id: s.id, itemId: s.itemId, qty: s.qty, unitPricePhp: s.unitPricePhp, channel: s.channel, date: s.date, note: s.note?.trim() || undefined, soldBy: "seller" });
+    // Channel and price aren't the seller's to set — they come from the batch.
+    next.push({ id: s.id, itemId: s.itemId, qty: s.qty, unitPricePhp: resellerRate(current, s.itemId), channel: "reseller", date: s.date, note: s.note?.trim() || undefined, soldBy: "seller" });
   }
 
   // Dropping one of the owners' sales is a deletion by omission.

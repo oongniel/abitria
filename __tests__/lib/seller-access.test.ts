@@ -93,6 +93,21 @@ describe("what a seller may write", () => {
     expect(saved).toMatchObject({ qty: 1, soldBy: "seller" });
   });
 
+  it("always books a sale through a reseller, at retail less commission", async () => {
+    const cookie = await signIn("seller@abitria");
+    const snap = await read(cookie);
+    const batch = snap.state.batches[0]!;
+    const item = batch.items[0]!;
+
+    // A tampered payload asking for a direct sale at its own price.
+    const res = await save(cookie, { ...batch, sales: [sale({ itemId: item.id, channel: "direct", unitPricePhp: 99_999 }), ...batch.sales] }, snap.versions[batch.id]!);
+    expect(res.status).toBe(200);
+
+    const stored = (await read(await signIn("admin@abitria"))).state.batches[0]!.sales.find((s) => s.id === "s_new")!;
+    expect(stored.channel).toBe("reseller");
+    expect(stored.unitPricePhp).toBe(item.retailPhp - batch.commissionPhp);
+  });
+
   it("cannot change prices, cost or stock, even with a tampered payload", async () => {
     const cookie = await signIn("seller@abitria");
     const snap = await read(cookie);
