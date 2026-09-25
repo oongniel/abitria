@@ -1,4 +1,4 @@
-# Sillage — perfume stock & profit, batch by batch
+# Abitria — perfume stock & profit, batch by batch
 
 Next.js 15 (App Router) · TypeScript strict · Tailwind 3 · Framer Motion
 
@@ -46,6 +46,21 @@ e2e/                    Playwright
 ## Storage: this browser or Google Sheets
 - **Default:** saved in the browser (`lib/storage.ts`). Nothing to configure.
 - **Google Sheets:** set `NEXT_PUBLIC_STORAGE=sheets` plus the Google variables in `.env.example`. Full setup and the sheet layout: [`docs/google-sheets.md`](docs/google-sheets.md). Server code lives in `lib/server/` (service-account auth with no Google SDK, repository with conflict checks, passcode gate) and `app/api/`.
+
+## Who can sign in
+
+Two passcodes, both set as environment variables. Sign-in only exists in Google Sheets mode; in browser-local mode there is no server to enforce anything.
+
+| | `APP_PASSCODE` (owner) | `SELLER_PASSCODE` (seller) |
+| --- | --- | --- |
+| Batches, stock, sales | full | read, plus records sales |
+| Cost, margin, profit, partners, expenses | yes | **never sent to the browser** |
+| New batch, import, backup, delete, batch setup | yes | no |
+| Editing a sale | any | only ones they recorded |
+
+The seller boundary is enforced on the server, not just hidden in the UI: `/api/state` strips cost, capital, expenses and notes for a seller (`lib/server/seller.ts`), and their only write rebuilds the batch from the sheet and accepts nothing but their own sales, so a tampered payload cannot touch prices or stock. Sales carry a `soldBy` column in the sheet to record who entered them. Leave `SELLER_PASSCODE` blank and no seller sign-in exists.
+
+Sign out from the bottom of the sidebar (or the top bar on a phone) to clear the session and return to the passcode screen.
 - **Firestore later:** replace `lib/server/repository.ts`; the API and the app stay the same.
 
 ## Tests

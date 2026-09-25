@@ -1,5 +1,8 @@
 export type SaleChannel = "reseller" | "direct";
 
+/** Who is signed in: the owners, or a seller who records sales without seeing money figures. */
+export type Role = "admin" | "seller";
+
 export interface Partner {
   id: string;
   name: string;
@@ -34,6 +37,8 @@ export interface Sale {
   /** ISO date, yyyy-mm-dd */
   date: string;
   note?: string;
+  /** Who recorded it. A seller may only change their own; absent means the owners'. */
+  soldBy?: Role;
 }
 
 export interface Batch {

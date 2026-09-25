@@ -14,17 +14,20 @@ import type { Batch, BatchItem, Sale, SaleChannel } from "@/typings/inventory";
 interface SaleFormProps {
   batch: Batch;
   item: BatchItem;
-  onSubmit: (sale: Omit<Sale, "id">) => void;
+  /** Pass a sale to edit it; omit to record a new one. */
+  initial?: Sale;
+  submitLabel?: string;
+  onSubmit: (sale: Omit<Sale, "id" | "soldBy">) => void;
   onCancel: () => void;
 }
 
-export const SaleForm = ({ batch, item, onSubmit, onCancel }: SaleFormProps) => {
+export const SaleForm = ({ batch, item, initial, submitLabel = "Record sale", onSubmit, onCancel }: SaleFormProps) => {
   const f = itemFigures(batch, item);
-  const [qty, setQty] = useState(1);
-  const [channel, setChannel] = useState<SaleChannel>("reseller");
-  const [price, setPrice] = useState(String(f.netPhp));
-  const [date, setDate] = useState(todayIso());
-  const [note, setNote] = useState("");
+  const [qty, setQty] = useState(initial?.qty ?? 1);
+  const [channel, setChannel] = useState<SaleChannel>(initial?.channel ?? "reseller");
+  const [price, setPrice] = useState(String(initial?.unitPricePhp ?? f.netPhp));
+  const [date, setDate] = useState(initial?.date ?? todayIso());
+  const [note, setNote] = useState(initial?.note ?? "");
 
   const pickChannel = (c: SaleChannel) => {
     setChannel(c);
@@ -32,7 +35,8 @@ export const SaleForm = ({ batch, item, onSubmit, onCancel }: SaleFormProps) => 
   };
 
   const unit = Number(price);
-  const valid = unit >= 0 && price !== "" && qty >= 1 && qty <= f.left;
+  const max = f.left + (initial?.qty ?? 0);
+  const valid = unit >= 0 && price !== "" && qty >= 1 && qty <= max;
 
   return (
     <form
@@ -47,7 +51,7 @@ export const SaleForm = ({ batch, item, onSubmit, onCancel }: SaleFormProps) => 
       <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
         <div className="flex flex-col gap-1.5">
           <span className="b2 text-ink-2">Bottles sold</span>
-          <Stepper label="bottles sold" value={qty} min={1} max={Math.max(1, f.left)} onChange={setQty} />
+          <Stepper label="bottles sold" value={qty} min={1} max={Math.max(1, max)} onChange={setQty} />
         </div>
         <div className="flex flex-col gap-1.5">
           <span className="b2 text-ink-2">Sold through</span>
@@ -75,7 +79,7 @@ export const SaleForm = ({ batch, item, onSubmit, onCancel }: SaleFormProps) => 
             Cancel
           </Button>
           <Button type="submit" disabled={!valid}>
-            Record sale
+            {submitLabel}
           </Button>
         </div>
       </div>

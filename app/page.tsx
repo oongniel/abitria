@@ -21,7 +21,7 @@ import { useInventory } from "@/lib/store";
 const aed0 = (n: number) => money(n, "AED", { decimals: 0 });
 
 export default function OverviewPage() {
-  const { ready, batches, upsert } = useInventory();
+  const { ready, batches, upsert, isSeller } = useInventory();
   const router = useRouter();
   const toast = useToast();
   const reduce = useReducedMotion();
@@ -34,6 +34,18 @@ export default function OverviewPage() {
     toast("Loaded the batch from your spreadsheet.");
     router.push(`/batches/${b.id}`);
   };
+
+  if (!batches.length && isSeller) {
+    return (
+      <div className="container-x grid min-h-[calc(100dvh-10rem)] items-center gap-10 py-10 md:grid-cols-[auto_1fr] md:gap-16">
+        <Flacon level={0.08} className="mx-auto md:mx-0" label="An empty bottle" />
+        <div className="flex max-w-xl flex-col gap-3">
+          <h1 className="h1">Nothing to sell yet</h1>
+          <p className="body1 text-ink-2">Batches show up here once the owner adds them. You’ll be able to record each sale against the bottles in stock.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!batches.length) {
     return (
@@ -78,7 +90,7 @@ export default function OverviewPage() {
           <h1 className="h1">Batches</h1>
           <p className="body1 num max-w-prose text-ink-2">
             {plural(left, "bottle")} on hand across {plural(inPlay, "active batch", "active batches")}.{" "}
-            {realized >= 0 ? (
+            {isSeller ? null : realized >= 0 ? (
               <>
                 Profit so far: <span className="font-semibold text-amber">{aed0(realized)}</span>.
               </>
@@ -89,9 +101,11 @@ export default function OverviewPage() {
             )}
           </p>
         </div>
-        <Link href="/batches/new" className={cn(buttonVariants(), "w-fit")}>
-          <Plus className="h-4 w-4" /> New batch
-        </Link>
+        {!isSeller && (
+          <Link href="/batches/new" className={cn(buttonVariants(), "w-fit")}>
+            <Plus className="h-4 w-4" /> New batch
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
@@ -104,23 +118,32 @@ export default function OverviewPage() {
               transition={{ duration: 0.35, ease: EASE.out, delay: Math.min(i, 6) * 0.04 }}
             >
               <Link href={`/batches/${b.id}`} className="group grid grid-cols-[auto_1fr] items-center gap-4 p-4 transition-colors hover:bg-surface-2/50 md:grid-cols-[auto_1fr_auto_auto] md:gap-6 md:px-5">
-                <Flacon size="sm" level={f.units ? f.left / f.units : 0} inProfit={f.inProfit} label={`${f.left} of ${f.units} left`} />
+                <Flacon size="sm" level={f.units ? f.left / f.units : 0} inProfit={!isSeller && f.inProfit} label={`${f.left} of ${f.units} left`} />
                 <div className="flex min-w-0 flex-col gap-1">
                   <span className="t2 truncate transition-colors group-hover:text-oud">{b.name}</span>
                   <span className="b2 num text-ink-2">
                     {shortDate(b.purchasedOn)}, {plain(f.left)} of {plain(f.units)} left
                   </span>
                 </div>
-                <div className="col-span-2 flex items-baseline justify-between gap-6 md:col-span-1 md:flex-col md:items-end md:gap-1">
-                  <span className="b2 text-ink-2">Profit so far</span>
-                  <span className={cn("figure text-[1.25rem]", realizedTone(f.realizedProfitAed, f.revenueAed, f.left))}>{aed0(f.realizedProfitAed)}</span>
-                </div>
-                <div className="col-span-2 flex items-baseline justify-between gap-6 md:col-span-1 md:w-36 md:flex-col md:items-end md:gap-1">
-                  <span className="b2 text-ink-2">If all sells</span>
-                  <span className="num t3">
-                    {aed0(f.projectedProfitAed)} <span className="font-normal text-ink-2">({percent(f.projectedMarginPct)})</span>
-                  </span>
-                </div>
+                {isSeller ? (
+                  <div className="col-span-2 flex items-baseline justify-between gap-6 md:col-span-2 md:w-36 md:flex-col md:items-end md:gap-1">
+                    <span className="b2 text-ink-2">Left to sell</span>
+                    <span className="figure text-[1.25rem]">{plain(f.left)}</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="col-span-2 flex items-baseline justify-between gap-6 md:col-span-1 md:flex-col md:items-end md:gap-1">
+                      <span className="b2 text-ink-2">Profit so far</span>
+                      <span className={cn("figure text-[1.25rem]", realizedTone(f.realizedProfitAed, f.revenueAed, f.left))}>{aed0(f.realizedProfitAed)}</span>
+                    </div>
+                    <div className="col-span-2 flex items-baseline justify-between gap-6 md:col-span-1 md:w-36 md:flex-col md:items-end md:gap-1">
+                      <span className="b2 text-ink-2">If all sells</span>
+                      <span className="num t3">
+                        {aed0(f.projectedProfitAed)} <span className="font-normal text-ink-2">({percent(f.projectedMarginPct)})</span>
+                      </span>
+                    </div>
+                  </>
+                )}
               </Link>
             </motion.li>
           ))}

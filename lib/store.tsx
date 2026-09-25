@@ -6,7 +6,7 @@ import seed from "@/content/sample-batch.json";
 import { newBatch } from "@/lib/batch-ops";
 import { remote, type Snapshot } from "@/lib/remote";
 import { emptyState, isFirstRun, load, save } from "@/lib/storage";
-import type { Batch, InventoryState } from "@/typings/inventory";
+import type { Batch, InventoryState, Role } from "@/typings/inventory";
 
 /** "sheets" when NEXT_PUBLIC_STORAGE=sheets at build time; otherwise this browser's storage. */
 export const STORAGE_MODE: "local" | "sheets" = process.env.NEXT_PUBLIC_STORAGE === "sheets" ? "sheets" : "local";
@@ -44,6 +44,10 @@ export interface Notice {
 
 interface InventoryContextValue {
   mode: typeof STORAGE_MODE;
+  /** Who is signed in. Without passcodes everyone is the owner. */
+  role: Role;
+  /** A seller records sales and never sees cost, margin or profit. */
+  isSeller: boolean;
   ready: boolean;
   batches: Batch[];
   getBatch: (id: string) => Batch | undefined;
@@ -58,6 +62,7 @@ interface InventoryContextValue {
   retry: () => void;
   locked: boolean;
   unlock: (passcode: string) => Promise<boolean>;
+  logout: () => Promise<void>;
   loadError: string | null;
   reload: () => void;
   notice: Notice | null;
@@ -74,6 +79,7 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
   const [status, setStatus] = useState<SyncStatus>("saved");
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
+  const [role, setRole] = useState<Role>("admin");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -137,6 +143,12 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
           say(res.message, "error");
           continue;
         }
+        if (res.kind === "forbidden") {
+          // The server refused the change, so its copy is the truth — take it back.
+          say(res.message, "error");
+          void loadRemote();
+          continue;
+        }
         // network / sheets / config — keep the change and retry with backoff
         if (!pending.current.has(id)) pending.current = new Map([[id, change], ...pending.current]);
         failures.current += 1;
@@ -161,6 +173,7 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
   const loadRemote = useCallback(async () => {
     const res = await remote.load();
     if (res.ok) {
+      setRole(res.role);
       adopt(res.snapshot);
       setLoadError(null);
       setLocked(false);
@@ -263,8 +276,10 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
 
   const unlock = useCallback(
     async (passcode: string) => {
-      const ok = await remote.unlock(passcode);
-      if (ok) {
+      const next = await remote.unlock(passcode);
+      const ok = next !== null;
+      if (next) {
+        setRole(next);
         setLocked(false);
         await loadRemote();
         if (pending.current.size) void flush();
@@ -274,6 +289,20 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
     [loadRemote, flush],
   );
 
+  /** Clears the session and drops the data from this browser, back to the passcode screen. */
+  const logout = useCallback(async () => {
+    await remote.logout();
+    pending.current.clear();
+    versions.current = {};
+    failures.current = 0;
+    if (retryTimer.current) window.clearTimeout(retryTimer.current);
+    dispatch({ type: "hydrate", state: emptyState() });
+    setStatus("saved");
+    setStatusMessage(null);
+    setRole("admin");
+    setLocked(true);
+  }, []);
+
   const reload = useCallback(() => {
     setLoadError(null);
     setReady(false);
@@ -281,8 +310,8 @@ export const InventoryProvider = ({ children }: { children: React.ReactNode }) =
   }, [loadRemote]);
 
   const value = useMemo(
-    () => ({ mode: STORAGE_MODE, ready, batches: state.batches, getBatch, upsert, remove, replaceAll, saveFailed, status, statusMessage, retry, locked, unlock, loadError, reload, notice }),
-    [ready, state.batches, getBatch, upsert, remove, replaceAll, saveFailed, status, statusMessage, retry, locked, unlock, loadError, reload, notice],
+    () => ({ mode: STORAGE_MODE, role, isSeller: role === "seller", ready, batches: state.batches, getBatch, upsert, remove, replaceAll, saveFailed, status, statusMessage, retry, locked, unlock, logout, loadError, reload, notice }),
+    [role, ready, state.batches, getBatch, upsert, remove, replaceAll, saveFailed, status, statusMessage, retry, locked, unlock, logout, loadError, reload, notice],
   );
 
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;

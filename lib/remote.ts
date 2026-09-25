@@ -1,4 +1,4 @@
-import type { Batch, InventoryState } from "@/typings/inventory";
+import type { Batch, InventoryState, Role } from "@/typings/inventory";
 
 export interface Snapshot {
   state: InventoryState;
@@ -6,10 +6,10 @@ export interface Snapshot {
 }
 
 export type RemoteResult =
-  | { ok: true; snapshot: Snapshot }
+  | { ok: true; snapshot: Snapshot; role: Role }
   | { ok: false; kind: "locked" }
   | { ok: false; kind: "conflict"; snapshot: Snapshot }
-  | { ok: false; kind: "config" | "sheets" | "network" | "invalid"; message: string };
+  | { ok: false; kind: "config" | "sheets" | "network" | "invalid" | "forbidden"; message: string };
 
 const request = async (path: string, init?: RequestInit): Promise<RemoteResult> => {
   let res: Response;
@@ -18,9 +18,10 @@ const request = async (path: string, init?: RequestInit): Promise<RemoteResult> 
   } catch {
     return { ok: false, kind: "network", message: "No connection. Changes will be saved when you’re back online." };
   }
-  const body = (await res.json().catch(() => ({}))) as Partial<Snapshot> & { error?: string; message?: string };
-  if (res.ok && body.state && body.versions) return { ok: true, snapshot: { state: body.state, versions: body.versions } };
+  const body = (await res.json().catch(() => ({}))) as Partial<Snapshot> & { error?: string; message?: string; role?: Role };
+  if (res.ok && body.state && body.versions) return { ok: true, snapshot: { state: body.state, versions: body.versions }, role: body.role ?? "admin" };
   if (res.status === 401) return { ok: false, kind: "locked" };
+  if (res.status === 403) return { ok: false, kind: "forbidden", message: body.message ?? "You don’t have access to that." };
   if (res.status === 409 && body.state && body.versions) return { ok: false, kind: "conflict", snapshot: { state: body.state, versions: body.versions } };
   if (res.status === 503) return { ok: false, kind: "config", message: body.message ?? "Google Sheets isn’t set up." };
   if (res.status === 400) return { ok: false, kind: "invalid", message: body.message ?? "The server rejected that change." };
@@ -34,10 +35,18 @@ export const remote = {
   deleteBatch: (id: string, baseVersion: string | null) =>
     request(`/api/batches/${encodeURIComponent(id)}?baseVersion=${encodeURIComponent(baseVersion ?? "")}`, { method: "DELETE" }),
   replaceAll: (state: InventoryState) => request("/api/state", { method: "PUT", body: JSON.stringify(state) }),
-  unlock: async (passcode: string) => {
+  unlock: async (passcode: string): Promise<Role | null> => {
     try {
       const res = await fetch("/api/unlock", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode }) });
-      return res.ok;
+      const body = (await res.json().catch(() => ({}))) as { role?: Role };
+      return res.ok ? body.role ?? "admin" : null;
+    } catch {
+      return null;
+    }
+  },
+  logout: async (): Promise<boolean> => {
+    try {
+      return (await fetch("/api/unlock", { method: "DELETE" })).ok;
     } catch {
       return false;
     }

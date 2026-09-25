@@ -1,8 +1,9 @@
 import sample from "@/content/sample-batch.json";
 import { newBatch } from "@/lib/batch-ops";
 import { SUMMARY, TABS, gridsToState, stateToGrids, summaryGrid, versionsOf, type Grid, type TabGrids, type TabKey } from "@/lib/server/sheet-schema";
+import { mergeSellerSales } from "@/lib/server/seller";
 import { SheetsConfigError, memoryClient, restClient, type SheetsClient } from "@/lib/server/sheets-client";
-import type { Batch, InventoryState } from "@/typings/inventory";
+import type { Batch, InventoryState, Sale } from "@/typings/inventory";
 
 export interface Snapshot {
   state: InventoryState;
@@ -125,6 +126,28 @@ export const saveBatch = (batch: Batch, baseVersion: string | null): Promise<Sna
       batches: exists ? state.batches.map((b) => (b.id === batch.id ? stamped : b)) : [stamped, ...state.batches],
     };
     return persist(c, next, sizes);
+  });
+
+export class ForbiddenError extends Error {}
+
+/**
+ * The seller's only write. Their payload supplies sales and nothing else: the
+ * batch is rebuilt from the sheet, so prices, costs and stock can't be touched.
+ */
+export const saveSellerSales = (id: string, sales: Sale[], baseVersion: string | null): Promise<Snapshot> =>
+  serial(async () => {
+    const c = getClient();
+    const { state, sizes } = await load(c);
+    const current = state.batches.find((b) => b.id === id);
+    const version = versionsOf(state)[id] ?? null;
+    if (!current) throw new ForbiddenError("That batch isn’t in the sheet.");
+    if (version !== baseVersion) throw new ConflictError({ state, versions: versionsOf(state) });
+
+    const merged = mergeSellerSales(current, sales);
+    if (!merged.ok) throw new ForbiddenError(merged.message);
+
+    const stamped = { ...merged.batch, updatedAt: new Date().toISOString() };
+    return persist(c, { version: 1, batches: state.batches.map((b) => (b.id === id ? stamped : b)) }, sizes);
   });
 
 export const deleteBatch = (id: string, baseVersion: string | null): Promise<Snapshot> =>
