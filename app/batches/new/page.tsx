@@ -11,9 +11,10 @@ import { useToast } from "@/components/ui/toast";
 import { DEFAULTS, newBatch, restockFrom, updateSettings } from "@/lib/batch-ops";
 import { plural } from "@/lib/format";
 import { todayIso, uid } from "@/lib/id";
+import { OwnerOnly } from "@/components/elements/OwnerOnly";
 import { useInventory } from "@/lib/store";
 
-export default function NewBatchPage() {
+function NewBatchPage() {
   const { ready, batches, upsert } = useInventory();
   const router = useRouter();
   const toast = useToast();
@@ -91,5 +92,13 @@ export default function NewBatchPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <OwnerOnly>
+      <NewBatchPage />
+    </OwnerOnly>
   );
 }

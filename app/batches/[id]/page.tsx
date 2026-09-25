@@ -26,10 +26,11 @@ function BatchPage() {
   const { id } = useParams<{ id: string }>();
   const search = useSearchParams();
   const router = useRouter();
-  const { ready, getBatch, upsert, remove, mode } = useInventory();
+  const { ready, getBatch, upsert, remove, mode, isSeller } = useInventory();
   const toast = useToast();
   const reduce = useReducedMotion();
-  const [tab, setTab] = useState<Tab>((search.get("tab") as Tab) || "stock");
+  const requested = (search.get("tab") as Tab) || "stock";
+  const [tab, setTab] = useState<Tab>(isSeller && requested === "setup" ? "stock" : requested);
   const batch = getBatch(id);
 
   const commit = useCallback<Commit>(
@@ -89,14 +90,16 @@ function BatchPage() {
         batch={batch}
         f={f}
         actions={
-          <>
-            <Button variant="outline" size="sm" onClick={onExport} disabled={!batch.items.length}>
-              <Download className="h-4 w-4" /> Export .xlsx
-            </Button>
-            <Button variant="outline" size="sm" onClick={onRestock} disabled={!batch.items.length}>
-              <Copy className="h-4 w-4" /> Restock
-            </Button>
-          </>
+          isSeller ? null : (
+            <>
+              <Button variant="outline" size="sm" onClick={onExport} disabled={!batch.items.length}>
+                <Download className="h-4 w-4" /> Export .xlsx
+              </Button>
+              <Button variant="outline" size="sm" onClick={onRestock} disabled={!batch.items.length}>
+                <Copy className="h-4 w-4" /> Restock
+              </Button>
+            </>
+          )
         }
       />
 
@@ -108,7 +111,7 @@ function BatchPage() {
           tabs={[
             { value: "stock", label: "Stock", count: batch.items.length },
             { value: "sales", label: "Sales", count: batch.sales.length },
-            { value: "setup", label: "Setup" },
+            ...(isSeller ? [] : [{ value: "setup" as const, label: "Setup" }]),
           ]}
         />
         <AnimatePresence mode="wait" initial={false}>
@@ -122,7 +125,7 @@ function BatchPage() {
           >
             {tab === "stock" && <StockTable batch={batch} commit={commit} />}
             {tab === "sales" && <SalesList batch={batch} commit={commit} onGoToStock={() => setTab("stock")} />}
-            {tab === "setup" && (
+            {tab === "setup" && !isSeller && (
               <BatchSettingsForm
                 key={batch.updatedAt}
                 submitLabel="Save changes"

@@ -15,6 +15,7 @@ import { addItem, recordSale, removeItem, updateItem } from "@/lib/batch-ops";
 import { itemFigures } from "@/lib/calc";
 import { cn } from "@/lib/cn";
 import { money, percent, plural } from "@/lib/format";
+import { useInventory } from "@/lib/store";
 import type { Batch, BatchItem } from "@/typings/inventory";
 
 export type Commit = (next: Batch, message: string, opts?: { undo?: boolean }) => void;
@@ -59,6 +60,8 @@ const SoldChip = ({ flash }: { flash: { qty: number; key: number } | null }) => 
 };
 
 export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) => {
+  // A seller sells from this table; cost, margin and projections aren't theirs to see.
+  const { isSeller } = useInventory();
   const [open, setOpen] = useState<Open>(null);
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
@@ -78,7 +81,8 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
   };
 
   const onSale = (item: BatchItem) => (sale: Parameters<typeof recordSale>[1]) => {
-    commit(recordSale(batch, sale), `Recorded ${plural(sale.qty, "bottle")} of ${item.name}.`, { undo: true });
+    // Stamped here too so the seller can correct it straight away, before the server replies.
+    commit(recordSale(batch, { ...sale, soldBy: isSeller ? "seller" : undefined }), `Recorded ${plural(sale.qty, "bottle")} of ${item.name}.`, { undo: true });
     setFlash({ id: item.id, qty: sale.qty, key: Date.now() });
     setOpen(null);
   };
@@ -98,12 +102,16 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
       <Button size="sm" variant={open?.id === it.id && open.mode === "sell" ? "secondary" : "outline"} disabled={left === 0} onClick={() => toggle(it.id, "sell")} aria-expanded={open?.id === it.id && open.mode === "sell"}>
         {left === 0 ? "Sold out" : "Sell"}
       </Button>
-      <Button size="icon-sm" variant="ghost" aria-label={`Edit ${it.name}`} onClick={() => toggle(it.id, "edit")}>
-        <Pencil className="h-4 w-4" />
-      </Button>
-      <Button size="icon-sm" variant="ghost" aria-label={`Remove ${it.name}`} onClick={() => onDelete(it)} className="hover:text-rose">
-        <Trash2 className="h-4 w-4" />
-      </Button>
+      {!isSeller && (
+        <>
+          <Button size="icon-sm" variant="ghost" aria-label={`Edit ${it.name}`} onClick={() => toggle(it.id, "edit")}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button size="icon-sm" variant="ghost" aria-label={`Remove ${it.name}`} onClick={() => onDelete(it)} className="hover:text-rose">
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </>
+      )}
     </div>
   );
 
@@ -125,9 +133,11 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
             <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-2" />
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search brand or perfume" className={cn(inputClass, "rounded-full ps-9")} />
           </label>
-          <Button variant="secondary" onClick={() => { setOpen(null); setAdding((a) => !a); }} aria-expanded={adding}>
-            <PackagePlus className="h-4 w-4" /> Add perfume
-          </Button>
+          {!isSeller && (
+            <Button variant="secondary" onClick={() => { setOpen(null); setAdding((a) => !a); }} aria-expanded={adding}>
+              <PackagePlus className="h-4 w-4" /> Add perfume
+            </Button>
+          )}
         </div>
       )}
 
@@ -143,7 +153,11 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
         />
       </Collapse>
 
-      {batch.items.length === 0 && !adding && (
+      {batch.items.length === 0 && !adding && isSeller && (
+        <p className="body2 panel p-6 text-ink-2">This batch has no perfumes yet. The owner adds them before you can record sales.</p>
+      )}
+
+      {batch.items.length === 0 && !adding && !isSeller && (
         <div className="panel flex flex-col items-start gap-4 p-6 md:p-8">
           <div className="flex flex-col gap-1">
             <h3 className="t1">Add the perfumes in this batch</h3>
@@ -162,16 +176,16 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
       {/* Desktop table */}
       {rows.length > 0 && (
         <div className="panel hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[56rem] border-collapse">
+          <table className={cn("w-full border-collapse", isSeller ? "min-w-[34rem]" : "min-w-[56rem]")}>
             <thead>
               <tr className="b2 border-b border-line text-ink-2 [&>th]:h-11 [&>th]:px-4 [&>th]:text-start [&>th]:font-medium">
                 <th>Perfume</th>
                 <th className="!text-end">Retail</th>
                 <th className="!text-end">Less com</th>
-                <th className="!text-end">Cost</th>
-                <th className="!text-end">Margin</th>
+                {!isSeller && <th className="!text-end">Cost</th>}
+                {!isSeller && <th className="!text-end">Margin</th>}
                 <th className="!text-end">Left</th>
-                <th className="!text-end">Projected sales</th>
+                {!isSeller && <th className="!text-end">Projected sales</th>}
                 <th>
                   <span className="sr-only">Actions</span>
                 </th>
@@ -197,29 +211,33 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
                       </td>
                       <td className="text-end">{money(it.retailPhp, "PHP")}</td>
                       <td className="text-end">{money(f.netPhp, "PHP")}</td>
-                      <td className="text-end">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span>{money(it.costAed, "AED")}</span>
-                          <span className="b2 text-ink-2">{money(f.costPhp, "PHP")}</span>
-                        </div>
-                      </td>
-                      <td className="text-end">
-                        <div className="flex flex-col items-end gap-0.5">
-                          <span className={cn("font-semibold", marginTone(f.marginPhp))}>{money(f.marginPhp, "PHP")}</span>
-                          <span className="b2 text-ink-2">{percent(f.marginPct)}</span>
-                        </div>
-                      </td>
+                      {!isSeller && (
+                        <td className="text-end">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span>{money(it.costAed, "AED")}</span>
+                            <span className="b2 text-ink-2">{money(f.costPhp, "PHP")}</span>
+                          </div>
+                        </td>
+                      )}
+                      {!isSeller && (
+                        <td className="text-end">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <span className={cn("font-semibold", marginTone(f.marginPhp))}>{money(f.marginPhp, "PHP")}</span>
+                            <span className="b2 text-ink-2">{percent(f.marginPct)}</span>
+                          </div>
+                        </td>
+                      )}
                       <td>
                         <div className="relative flex justify-end">
                           <LeftMeter left={f.left} qty={it.qty} />
                           <SoldChip flash={flash?.id === it.id ? flash : null} />
                         </div>
                       </td>
-                      <td className="text-end">{money(f.lineSalesPhp, "PHP")}</td>
+                      {!isSeller && <td className="text-end">{money(f.lineSalesPhp, "PHP")}</td>}
                       <td className="w-px whitespace-nowrap">{actions(it, f.left)}</td>
                     </motion.tr>
                     <tr>
-                      <td colSpan={8} className="p-0">
+                      <td colSpan={isSeller ? 5 : 8} className="p-0">
                         <Collapse open={open?.id === it.id}>
                           <div className="border-b border-line/70 bg-surface-2/30 p-3">{panel(it, f.sold)}</div>
                         </Collapse>
@@ -250,12 +268,20 @@ export const StockTable = ({ batch, commit }: { batch: Batch; commit: Commit }) 
                   </div>
                 </div>
                 <div className="body2 num flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-ink-2">
-                  <span>
-                    {money(f.netPhp, "PHP")} net, cost {money(f.costPhp, "PHP")}
-                  </span>
-                  <span className={cn("font-semibold", marginTone(f.marginPhp))}>
-                    {money(f.marginPhp, "PHP", { signed: true })} ({percent(f.marginPct)})
-                  </span>
+                  {isSeller ? (
+                    <span>
+                      {money(it.retailPhp, "PHP")} retail, {money(f.netPhp, "PHP")} through a reseller
+                    </span>
+                  ) : (
+                    <>
+                      <span>
+                        {money(f.netPhp, "PHP")} net, cost {money(f.costPhp, "PHP")}
+                      </span>
+                      <span className={cn("font-semibold", marginTone(f.marginPhp))}>
+                        {money(f.marginPhp, "PHP", { signed: true })} ({percent(f.marginPct)})
+                      </span>
+                    </>
+                  )}
                 </div>
                 {actions(it, f.left)}
                 <Collapse open={open?.id === it.id}>{panel(it, f.sold)}</Collapse>

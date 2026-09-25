@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/toast";
 import { plural } from "@/lib/format";
 import { todayIso } from "@/lib/id";
 import { emptyState, isInventoryState } from "@/lib/storage";
+import { OwnerOnly } from "@/components/elements/OwnerOnly";
 import { useInventory } from "@/lib/store";
 
 const Row = ({ title, body, children }: { title: string; body: string; children: React.ReactNode }) => (
@@ -21,7 +22,7 @@ const Row = ({ title, body, children }: { title: string; body: string; children:
   </section>
 );
 
-export default function DataPage() {
+function DataPage() {
   const { ready, batches, replaceAll, mode } = useInventory();
   const where = mode === "sheets" ? "the Google Sheet" : "this device";
   const toast = useToast();
@@ -51,7 +52,7 @@ export default function DataPage() {
       replaceAll(parsed);
       toast(`Restored ${plural(parsed.batches.length, "batch", "batches")}.`, { undo: () => replaceAll(before) });
     } catch {
-      toast("That isn’t a Sillage backup file. Pick the .json you downloaded from this page.", { tone: "error" });
+      toast("That isn’t an Abitria backup file. Pick the .json you downloaded from this page.", { tone: "error" });
     } finally {
       if (file.current) file.current.value = "";
     }
@@ -101,5 +102,13 @@ export default function DataPage() {
         </Row>
       </div>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <OwnerOnly>
+      <DataPage />
+    </OwnerOnly>
   );
 }

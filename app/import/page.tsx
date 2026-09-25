@@ -14,9 +14,10 @@ import { batchFigures, itemFigures } from "@/lib/calc";
 import { cn } from "@/lib/cn";
 import { money, percent, plural } from "@/lib/format";
 import type { ParsedSheet } from "@/lib/spreadsheet";
+import { OwnerOnly } from "@/components/elements/OwnerOnly";
 import { useInventory } from "@/lib/store";
 
-export default function ImportPage() {
+function ImportPage() {
   const [parsed, setParsed] = useState<ParsedSheet | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -173,5 +174,13 @@ export default function ImportPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <OwnerOnly>
+      <ImportPage />
+    </OwnerOnly>
   );
 }

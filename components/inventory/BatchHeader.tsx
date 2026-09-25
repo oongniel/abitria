@@ -9,6 +9,7 @@ import { EASE } from "@/lib/animation";
 import type { BatchFigures } from "@/lib/calc";
 import { cn } from "@/lib/cn";
 import { money, percent, plain, shortDate } from "@/lib/format";
+import { useInventory } from "@/lib/store";
 import type { Batch } from "@/typings/inventory";
 
 const aed0 = (n: number) => money(n, "AED", { decimals: 0 });
@@ -26,9 +27,16 @@ const Figure = ({ label, value, format, tone, note }: { label: string; value: nu
 
 export const BatchHeader = ({ batch, f, actions }: { batch: Batch; f: BatchFigures; actions: React.ReactNode }) => {
   const reduce = useReducedMotion();
+  // A seller sees what's left to sell; every money figure here is the owners'.
+  const { isSeller } = useInventory();
   const toBreakEven = Math.max(0, -f.realizedProfitAed);
-  const status =
-    f.units === 0
+  const status = isSeller
+    ? f.units === 0
+      ? "No perfumes in this batch yet."
+      : f.left === 0
+        ? "Everything in this batch is sold."
+        : `${plain(f.left)} of ${plain(f.units)} bottles still to sell.`
+    : f.units === 0
       ? "Add perfumes to see how this batch will do."
       : f.inProfit
         ? `In profit. Every bottle from here adds to it.`
@@ -40,8 +48,8 @@ export const BatchHeader = ({ batch, f, actions }: { batch: Batch; f: BatchFigur
     <header className="grid gap-6 md:grid-cols-[auto_1fr] md:gap-10">
       <div className="flex items-end gap-5 md:block">
         <div className="relative">
-          <Flacon level={f.units ? f.left / f.units : 0} breakEvenAt={f.units ? f.breakEvenAt : undefined} inProfit={f.inProfit} label={`${plain(f.left)} of ${plain(f.units)} bottles left`} />
-          {f.units > 0 && f.breakEvenAt < 1 && (
+          <Flacon level={f.units ? f.left / f.units : 0} breakEvenAt={!isSeller && f.units ? f.breakEvenAt : undefined} inProfit={!isSeller && f.inProfit} label={`${plain(f.left)} of ${plain(f.units)} bottles left`} />
+          {!isSeller && f.units > 0 && f.breakEvenAt < 1 && (
             <motion.span
               initial={reduce ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -74,19 +82,21 @@ export const BatchHeader = ({ batch, f, actions }: { batch: Batch; f: BatchFigur
           initial={reduce ? false : { opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: EASE.out }}
-          className={cn("body1 max-w-prose", f.inProfit ? "text-amber" : "text-ink")}
+          className={cn("body1 max-w-prose", !isSeller && f.inProfit ? "text-amber" : "text-ink")}
         >
           {status}
         </motion.p>
 
-        <dl className="grid grid-cols-2 gap-x-6 gap-y-5 border-t border-line pt-5 lg:grid-cols-4">
-          <Figure label="Profit so far" value={f.realizedProfitAed} format={(n) => money(n, "AED", { decimals: 0 })} tone={realizedTone(f.realizedProfitAed, f.revenueAed, f.left)} note={`Sales ${aed0(f.revenueAed)} less cost ${aed0(f.totalCostAed)}`} />
+        <dl className={cn("grid gap-x-6 gap-y-5 border-t border-line pt-5", isSeller ? "grid-cols-2" : "grid-cols-2 lg:grid-cols-4")}>
+          {isSeller && <Figure label="Bottles left" value={f.left} format={(n) => plain(Math.round(n))} note={`of ${plain(f.units)} in this batch`} />}
+          {isSeller && <Figure label="Bottles sold" value={f.sold} format={(n) => plain(Math.round(n))} note={`${percent(f.sellThrough)} of ${plain(f.units)}`} />}
+          {!isSeller && <><Figure label="Profit so far" value={f.realizedProfitAed} format={(n) => money(n, "AED", { decimals: 0 })} tone={realizedTone(f.realizedProfitAed, f.revenueAed, f.left)} note={`Sales ${aed0(f.revenueAed)} less cost ${aed0(f.totalCostAed)}`} />
           <Figure label="If everything sells" value={f.projectedProfitAed} format={aed0} tone={toneFor(f.projectedProfitAed)} note={`${percent(f.projectedMarginPct)} on ${aed0(f.projectedSalesAed)} in sales`} />
           <Figure label="Revenue so far" value={f.revenuePhp} format={php0} note={`of ${php0(f.projectedSalesPhp)} projected`} />
-          <Figure label="Bottles sold" value={f.sold} format={(n) => plain(Math.round(n))} note={`${percent(f.sellThrough)} of ${plain(f.units)}`} />
+          <Figure label="Bottles sold" value={f.sold} format={(n) => plain(Math.round(n))} note={`${percent(f.sellThrough)} of ${plain(f.units)}`} /></>}
         </dl>
 
-        {f.partners.length > 0 && (
+        {!isSeller && f.partners.length > 0 && (
           <div className="flex flex-col gap-2">
             <h2 className="b2 text-ink-2">Profit share if everything sells</h2>
             <ul className="flex flex-wrap gap-2">

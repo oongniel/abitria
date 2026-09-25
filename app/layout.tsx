@@ -10,7 +10,7 @@ import { themeScript } from "@/components/ui/theme-toggle";
 import { InventoryProvider } from "@/lib/store";
 
 export const metadata: Metadata = {
-  title: { default: "Sillage", template: "%s · Sillage" },
+  title: { default: "Abitria", template: "%s · Abitria" },
   description: "Perfume stock and profit, batch by batch.",
 };
 

@@ -1,46 +1,61 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Database, FileUp, LayoutGrid, Plus } from "lucide-react";
+import { Database, FileUp, LayoutGrid, LogOut, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { SyncGate, SyncNotices, SyncStatus } from "@/components/elements/SyncGate";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { SPRING } from "@/lib/animation";
 import { cn } from "@/lib/cn";
 import { useInventory } from "@/lib/store";
 
 const NAV = [
-  { href: "/", label: "Batches", icon: LayoutGrid, match: (p: string) => p === "/" || (p.startsWith("/batches/") && p !== "/batches/new") },
-  { href: "/batches/new", label: "New batch", icon: Plus, match: (p: string) => p === "/batches/new" },
-  { href: "/import", label: "Import", icon: FileUp, match: (p: string) => p.startsWith("/import") },
-  { href: "/data", label: "Backup", icon: Database, match: (p: string) => p.startsWith("/data") },
+  { href: "/", label: "Batches", icon: LayoutGrid, match: (p: string) => p === "/" || (p.startsWith("/batches/") && p !== "/batches/new"), seller: true },
+  { href: "/batches/new", label: "New batch", icon: Plus, match: (p: string) => p === "/batches/new", seller: false },
+  { href: "/import", label: "Import", icon: FileUp, match: (p: string) => p.startsWith("/import"), seller: false },
+  { href: "/data", label: "Backup", icon: Database, match: (p: string) => p.startsWith("/data"), seller: false },
 ];
 
-const Mark = () => (
-  <svg viewBox="0 0 24 32" aria-hidden className="h-7 w-auto">
-    <rect x="8" y="1" width="8" height="6" rx="1.5" className="fill-ink" />
-    <rect x="9.5" y="7" width="5" height="3" className="fill-ink-2" />
-    <rect x="2" y="10" width="20" height="21" rx="5" className="fill-none stroke-ink" strokeWidth="1.6" />
-    <path d="M4.5 20 Q8 18.5 12 20 T19.5 20 V26 a3 3 0 0 1 -3 3 h-9 a3 3 0 0 1 -3 -3 Z" className="fill-oud" />
-  </svg>
+/** Brand wordmark; the SVG carries its own gradient so it reads on light and dark. */
+const Logo = ({ className }: { className?: string }) => (
+  <img src="/abitria.svg" alt="Abitria" className={cn("w-auto", className)} />
 );
+
+/** Signs out and returns to the passcode screen. */
+const SignOut = ({ compact }: { compact?: boolean }) => {
+  const { logout } = useInventory();
+  if (compact) {
+    return (
+      <Button size="icon" variant="ghost" aria-label="Sign out" onClick={() => void logout()}>
+        <LogOut className="h-4 w-4" />
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" variant="ghost" className="w-fit" onClick={() => void logout()}>
+      <LogOut className="h-4 w-4" /> Sign out
+    </Button>
+  );
+};
 
 export const AppShell = ({ children }: { children: React.ReactNode }) => {
   const pathname = usePathname();
-  const { saveFailed, mode } = useInventory();
+  const { saveFailed, mode, isSeller, locked } = useInventory();
+  const nav = NAV.filter((item) => !isSeller || item.seller);
+  const signedIn = mode === "sheets" && !locked;
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[15.5rem_1fr]">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh flex-col gap-8 border-e border-line bg-surface-2/60 px-4 py-6 md:flex">
         <Link href="/" className="flex items-center gap-2.5 px-2">
-          <Mark />
-          <span className="font-serif text-[1.375rem] font-medium tracking-[-0.02em]">Sillage</span>
+          <Logo className="h-8" />
         </Link>
         <nav aria-label="Main" className="flex flex-col gap-1">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = item.match(pathname);
             const Icon = item.icon;
             return (
@@ -57,25 +72,29 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
             );
           })}
         </nav>
-        <div className="mt-auto flex items-center justify-between gap-2 px-1">
-          <SyncStatus />
-          <ThemeToggle />
+        <div className="mt-auto flex flex-col gap-3 px-1">
+          {isSeller && <p className="b2 text-ink-2">Signed in to record sales.</p>}
+          <div className="flex items-center justify-between gap-2">
+            <SyncStatus />
+            <ThemeToggle />
+          </div>
+          {signedIn && <SignOut />}
         </div>
       </aside>
 
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-paper/85 px-4 backdrop-blur-md md:hidden">
         <Link href="/" className="flex items-center gap-2">
-          <Mark />
-          <span className="font-serif text-[1.25rem] font-medium tracking-[-0.02em]">Sillage</span>
+          <Logo className="h-7" />
         </Link>
         <div className="flex items-center gap-2">
           {mode === "sheets" && <SyncStatus compact />}
           <ThemeToggle />
+          {signedIn && <SignOut compact />}
         </div>
       </header>
 
-      <main className="min-w-0 pb-28 md:pb-16">
+      <main className={cn("min-w-0 md:pb-16", nav.length > 1 ? "pb-28" : "pb-10")}>
         <SyncNotices />
         {saveFailed && mode === "local" && (
           <div role="alert" className="body2 border-b border-rose/30 bg-rose/10 px-5 py-2 text-rose">
@@ -86,9 +105,10 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
       </main>
 
       {/* Mobile tab bar */}
+      {nav.length > 1 && (
       <nav aria-label="Main" className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden">
-        <ul className="grid grid-cols-4">
-          {NAV.map((item) => {
+        <ul className="grid" style={{ gridTemplateColumns: `repeat(${nav.length}, minmax(0, 1fr))` }}>
+          {nav.map((item) => {
             const active = item.match(pathname);
             const Icon = item.icon;
             return (
@@ -103,6 +123,7 @@ export const AppShell = ({ children }: { children: React.ReactNode }) => {
           })}
         </ul>
       </nav>
+      )}
     </div>
   );
 };

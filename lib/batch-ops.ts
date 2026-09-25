@@ -50,6 +50,9 @@ export const removeItem = (b: Batch, id: string): Batch =>
 export const recordSale = (b: Batch, sale: Omit<Sale, "id">): Batch =>
   touch({ ...b, sales: [{ ...sale, id: uid("s_") }, ...b.sales] });
 
+export const updateSale = (b: Batch, id: string, patch: Omit<Sale, "id" | "soldBy">): Batch =>
+  touch({ ...b, sales: b.sales.map((s) => (s.id === id ? { ...s, ...patch } : s)) });
+
 export const removeSale = (b: Batch, id: string): Batch =>
   touch({ ...b, sales: b.sales.filter((s) => s.id !== id) });
 

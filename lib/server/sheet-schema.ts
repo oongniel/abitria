@@ -14,7 +14,7 @@ export const TABS = {
   partners: { title: "Partners", headers: ["id", "batchId", "batchName", "name", "capitalAed"] },
   expenses: { title: "Expenses", headers: ["id", "batchId", "batchName", "label", "amountAed"] },
   items: { title: "Items", headers: ["id", "batchId", "batchName", "brand", "name", "retailPhp", "costAed", "qty"] },
-  sales: { title: "Sales", headers: ["id", "batchId", "batchName", "itemId", "perfume", "date", "qty", "unitPricePhp", "channel", "note"] },
+  sales: { title: "Sales", headers: ["id", "batchId", "batchName", "itemId", "perfume", "date", "qty", "unitPricePhp", "channel", "note", "soldBy"] },
 } as const;
 
 export const SUMMARY = {
@@ -106,7 +106,8 @@ export const gridsToState = (grids: TabGrids): ReadResult => {
     const itemId = str(get(r, "itemId")) || b.items.find((i) => i.name.toLowerCase() === str(get(r, "perfume")).toLowerCase())?.id;
     if (!itemId) continue;
     const channel: SaleChannel = str(get(r, "channel")).toLowerCase() === "direct" ? "direct" : "reseller";
-    b.sales.push({ id: idOf(r, "s_"), itemId, date: isoDate(get(r, "date")), qty: Math.max(1, Math.round(num(get(r, "qty"), 1))), unitPricePhp: num(get(r, "unitPricePhp")), channel, note: opt(get(r, "note")) });
+    const soldBy = str(get(r, "soldBy")).toLowerCase() === "seller" ? "seller" : undefined;
+    b.sales.push({ id: idOf(r, "s_"), itemId, date: isoDate(get(r, "date")), qty: Math.max(1, Math.round(num(get(r, "qty"), 1))), unitPricePhp: num(get(r, "unitPricePhp")), channel, note: opt(get(r, "note")), soldBy });
   }
 
   return { state: { version: 1, batches }, repaired };
@@ -128,7 +129,7 @@ export const stateToGrids = (state: InventoryState): TabGrids => {
     b.expenses.forEach((e) => g.expenses.push([e.id, b.id, b.name, e.label, e.amountAed]));
     b.items.forEach((i) => g.items.push([i.id, b.id, b.name, i.brand, i.name, i.retailPhp, i.costAed, i.qty]));
     b.sales.forEach((s) =>
-      g.sales.push([s.id, b.id, b.name, s.itemId, b.items.find((i) => i.id === s.itemId)?.name ?? "", s.date, s.qty, s.unitPricePhp, s.channel, s.note ?? ""]),
+      g.sales.push([s.id, b.id, b.name, s.itemId, b.items.find((i) => i.id === s.itemId)?.name ?? "", s.date, s.qty, s.unitPricePhp, s.channel, s.note ?? "", s.soldBy ?? ""]),
     );
   }
   return g;
@@ -150,7 +151,7 @@ export const summaryGrid = (state: InventoryState): Grid => [
  */
 export const batchVersion = (b: Batch): string =>
   createHash("sha256")
-    .update(JSON.stringify([b.id, b.name, b.purchasedOn, b.rateAedToPhp, b.commissionPhp, b.notes ?? "", b.createdAt, b.updatedAt, b.partners, b.expenses, b.items, b.sales.map((s) => ({ ...s, note: s.note ?? "" }))]))
+    .update(JSON.stringify([b.id, b.name, b.purchasedOn, b.rateAedToPhp, b.commissionPhp, b.notes ?? "", b.createdAt, b.updatedAt, b.partners, b.expenses, b.items, b.sales.map((s) => ({ ...s, note: s.note ?? "", soldBy: s.soldBy ?? "" }))]))
     .digest("hex")
     .slice(0, 16);
 
